@@ -1,3 +1,5 @@
+// Shopify checkout on thehok.com. Set DISCOUNT_CODE to the 50% bundle code once it exists in Shopify admin.
+const SHOP='https://thehok.com',DISCOUNT_CODE='';
 let products=[],cart=[];try{cart=JSON.parse(localStorage.getItem('doctor-bundle')||'[]')}catch{}const $=s=>document.querySelector(s),money=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n/100);const modal=$('#builder');
 fetch('products.json').then(r=>r.json()).then(p=>{products=p;cart=cart.filter(x=>p.some(y=>y.id===x.id&&y.variants[x.variant])&&Number.isInteger(x.qty)&&x.qty>0);renderGrid();renderCart()}).catch(()=>{$('#grid').innerHTML='<p>Unable to load the scent directory. Please refresh.</p>'});
 function renderGrid(){
@@ -25,8 +27,17 @@ function renderCart(){
  $('#offer').innerHTML=count>=2?'<strong>50% OFF UNLOCKED</strong><span>Every bottle is now half price. Keep building your bundle.</span>':count===1?'<strong>ADD 1 MORE. UNLOCK 50% OFF.</strong><span>Your discount applies to every bottle in the bundle.</span>':'<strong>PICK 2+. SAVE 50%.</strong><span>Mix your favorites and build your scent wardrobe.</span>';
  $('#items').innerHTML=cart.map((x,i)=>{const p=products.find(p=>p.id===x.id);return `<article class="item"><img src="${p.image}&width=260" alt="HOK ${p.name}"><div class="item-details"><strong>${p.name}</strong><p>Inspired by ${p.inspiration}</p>${variantControls(p,x,i)}<div class="item-bottom"><div class="quantity"><button data-minus="${i}" aria-label="Remove one ${p.name}">−</button><span>${x.qty}</span><button data-plus="${i}" aria-label="Add one ${p.name}">+</button></div><strong class="line-price">${count>=2?`<del>${money(p.variants[x.variant].price*x.qty)}</del>`:''}${money(linePrices[i])}</strong><button class="remove" data-remove="${i}" aria-label="Remove ${p.name}">Remove</button></div></div></article>`}).join('')||'<p class="empty">Choose your first scent below.</p>';
  $('#summary').innerHTML=`<div class="sum-row"><span>${count} bottle${count===1?'':'s'} · regular price</span><span>${money(subtotal)}</span></div><div class="sum-row saving"><span>Your savings ${count>=2?'(50%)':''}</span><strong>−${money(discount)}</strong></div><div class="sum-row total"><span>Bundle total</span><strong>${money(subtotal-discount)}</strong></div>${count>=2?`<p class="savings-callout">You keep ${money(discount)} in your pocket.</p>`:'<p class="savings-callout">Add '+(2-count)+' more to unlock half-price bottles.</p>'}<p class="tax-note">Shipping and taxes calculated at checkout.</p>`;
+ const btn=$('#checkout'),live=DISCOUNT_CODE||count<2,due=live?subtotal-discount:subtotal;btn.disabled=count===0;btn.textContent=count?`Checkout · ${money(due)} →`:'Add a scent to check out';
+ $('#checkout-note').textContent=live?'Secure checkout on HOK (thehok.com). Shipping and taxes calculated at checkout.':'Secure checkout on HOK (thehok.com). The 50% bundle discount is not active at checkout yet, so regular prices apply.';
  renderSuggestions();
 }
+function checkoutUrl(){
+ const qty={};cart.forEach(x=>{const id=products.find(p=>p.id===x.id).variants[x.variant].id;qty[id]=(qty[id]||0)+x.qty});
+ const count=cart.reduce((s,x)=>s+x.qty,0),q=new URLSearchParams({utm_source:'theperfumedoctor',utm_medium:'referral'});
+ if(DISCOUNT_CODE&&count>=2)q.set('discount',DISCOUNT_CODE);
+ return `${SHOP}/cart/${Object.entries(qty).map(([id,n])=>id+':'+n).join(',')}?${q}`;
+}
+$('#checkout').onclick=()=>{if(cart.length)location.href=checkoutUrl()};
 $('#search').addEventListener('input',renderGrid);
 $('#bundle-search').addEventListener('input',renderSuggestions);
 $('#bag').onclick=()=>modal.showModal();$('#close').onclick=()=>modal.close();$('#continue').onclick=()=>modal.close();
